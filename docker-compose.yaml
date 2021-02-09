@@ -1,0 +1,84 @@
+version: '3.5'
+
+networks:
+  pg-overlay-network:
+    name: frontend
+    driver: overlay
+  pg-bridge-network:
+    name: backend
+    driver: bridge
+
+# Reusable shared config
+x-pg-shared: &pg-shared
+  image: bitnami/postgresql-repmgr:13-debian-10
+  ports:
+    - 5432
+  networks:
+    - pg-network
+  # After 10 restarts don't try it again, otherwise it could affect other services on the host machine by restarting infinitely
+  restart: on-failure:10
+  # Limit the logging files to 10 with 100mb each, otherwise there is no limit until the disk is full
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "100mb"
+      max-file: "10"
+  env_file:
+    - ./pg.env
+
+x-og-deploy-shared: &pg-deploy-shared
+  mode: replicated
+  replicas: 1
+  restart_policy:
+    condition: on-failure
+    delay: 5s
+    max_attempts: 5
+    window: 60s       
+
+services:
+  pg-1:
+    deploy:
+      placement: 
+        constraints:
+          - "node.hostname==docker-01"    
+      <<: *pg-deploy-shared
+    volumes:
+      - pg_1_data:/bitnami/postgresql
+    environment:
+      - REPMGR_NODE_NETWORK_NAME=pg-1
+      - REPMGR_NODE_NAME=pg-1
+    <<: *pg-shared
+
+  pg-2:
+    deploy:     
+      placement: 
+        constraints:
+          - "node.hostname==docker-02"
+      <<: *pg-deploy-shared
+    volumes:
+      - pg_2_data:/bitnami/postgresql
+    environment:
+      - REPMGR_NODE_NAME=pg-2
+      - REPMGR_NODE_NETWORK_NAME=pg-2
+    <<: *pg-shared
+  
+  pg-3:
+    deploy:    
+      placement: 
+        constraints:
+          - "node.hostname==docker-03"
+      <<: *pg-deploy-shared   
+    volumes:
+      - pg_3_data:/bitnami/postgresql
+    environment:
+      - REPMGR_NODE_NAME=pg-3
+      - REPMGR_NODE_NETWORK_NAME=pg-3
+    <<: *pg-shared  
+    
+volumes:
+  pg_1_data:
+    driver: local
+  pg_2_data:
+    driver: local
+  pg_3_data:
+    driver: local
