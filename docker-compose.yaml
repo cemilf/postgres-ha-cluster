@@ -14,7 +14,8 @@ x-pg-shared: &pg-shared
   ports:
     - 5432
   networks:
-    - pg-network
+    - pg-overlay-network
+    - pg-bridge-network
   # After 10 restarts don't try it again, otherwise it could affect other services on the host machine by restarting infinitely
   restart: on-failure:10
   # Limit the logging files to 10 with 100mb each, otherwise there is no limit until the disk is full
